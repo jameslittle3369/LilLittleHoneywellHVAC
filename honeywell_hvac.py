@@ -108,19 +108,11 @@ class Reading:
 
     @property
     def mode_text(self) -> str:
-        pos = self.get("system_switch_position")
-        try:
-            return SystemMode(pos).name if pos is not None else "?"
-        except ValueError:
-            return f"unknown({pos})"
+        return self.get("system_switch_position") or "?"
 
     @property
     def fan_text(self) -> str:
-        mode = self.get("fan_mode")
-        try:
-            name = FanMode(mode).name if mode is not None else "?"
-        except ValueError:
-            name = f"unknown({mode})"
+        name = self.get("fan_mode") or "?"
         return f"{name} (running)" if self.get("fan_is_running") else name
 
     @property
@@ -177,6 +169,21 @@ class Config:
 # --- Honeywell TCC -------------------------------------------------------
 
 
+def _enum_name(enum_cls: type, value: Any) -> str | None:
+    """Decode a raw pyhtcc IntEnum value to its .name, e.g. 3 -> "Cool".
+
+    An unrecognized value (enum drift, or a device pyhtcc doesn't fully
+    know) becomes "unknown(N)" rather than raising, so one odd zone
+    doesn't kill the whole collection run.
+    """
+    if value is None:
+        return None
+    try:
+        return enum_cls(value).name
+    except ValueError:
+        return f"unknown({value})"
+
+
 def collect(cfg: Config) -> list[Reading]:
     if not cfg.username or not cfg.password:
         sys.exit("HONEYWELL_USERNAME and HONEYWELL_PASSWORD must be set (copy .env.example to .env).")
@@ -191,6 +198,12 @@ def collect(cfg: Config) -> list[Reading]:
             fan = latest["fanData"]
             metrics = {snake: ui.get(raw) for snake, raw in UI_FIELD_MAP}
             metrics.update({snake: fan.get(raw) for snake, raw in FAN_FIELD_MAP})
+            # Stored/logged as the enum name, not the raw int -- see
+            # sensors-backend-fastapi's matching schema/model change.
+            metrics["system_switch_position"] = _enum_name(
+                SystemMode, metrics["system_switch_position"]
+            )
+            metrics["fan_mode"] = _enum_name(FanMode, metrics["fan_mode"])
             readings.append(Reading(device_id=device_id, name=zone.get_name(), metrics=metrics))
         except Exception as exc:  # noqa: BLE001 - one bad zone must not kill the run
             name = zone.zone_info.get("Name", device_id) if zone.zone_info else device_id

@@ -2,9 +2,9 @@
 """honeywell_hvac.py - poll Honeywell Total Connect Comfort thermostats via pyhtcc.
 
 Prints a table to stdout by default. With --sendemail it mails an HTML/text
-summary. --push-api POSTs every raw field pyhtcc exposes (not just the
-human-relevant ones) to sensors-backend-fastapi for Grafana time-series
-charting -- this is what the scheduled/automated run uses.
+summary. --push-api POSTs the fields in UI_FIELD_MAP/FAN_FIELD_MAP below
+to sensors-backend-fastapi for Grafana time-series charting -- this is
+what the scheduled/automated run uses.
 
 Configuration comes from a .env file (see .env.example).
 """
@@ -32,8 +32,10 @@ except ImportError:  # pragma: no cover - dependency guard
 # Snake-cased field name -> raw Honeywell key, in the exact shape pyhtcc's
 # CheckDataSession call returns (latestData.uiData / latestData.fanData).
 # Shared verbatim with sensors-backend-fastapi's HvacZoneLogRequest schema
-# field names -- every one of these gets logged, not a curated subset, per
-# an explicit decision to chart everything in Grafana now and prune later.
+# field names. Originally logged every raw field pyhtcc exposes; pruned
+# to these 15 after studying real data showed the rest never or rarely
+# changed (capability/allowed/available/not_fault flags, hold/vacation
+# bookkeeping, status/limit fields).
 UI_FIELD_MAP: tuple[tuple[str, str], ...] = (
     ("disp_temperature", "DispTemperature"),
     ("heat_setpoint", "HeatSetpoint"),
@@ -43,52 +45,16 @@ UI_FIELD_MAP: tuple[tuple[str, str], ...] = (
     ("status_cool", "StatusCool"),
     ("hold_until_capable", "HoldUntilCapable"),
     ("schedule_capable", "ScheduleCapable"),
-    ("vacation_hold", "VacationHold"),
     ("dual_setpoint_status", "DualSetpointStatus"),
-    ("heat_next_period", "HeatNextPeriod"),
-    ("cool_next_period", "CoolNextPeriod"),
-    ("heat_lower_setpt_limit", "HeatLowerSetptLimit"),
-    ("heat_upper_setpt_limit", "HeatUpperSetptLimit"),
-    ("cool_lower_setpt_limit", "CoolLowerSetptLimit"),
-    ("cool_upper_setpt_limit", "CoolUpperSetptLimit"),
     ("schedule_heat_sp", "ScheduleHeatSp"),
     ("schedule_cool_sp", "ScheduleCoolSp"),
-    ("switch_auto_allowed", "SwitchAutoAllowed"),
-    ("switch_cool_allowed", "SwitchCoolAllowed"),
-    ("switch_off_allowed", "SwitchOffAllowed"),
-    ("switch_heat_allowed", "SwitchHeatAllowed"),
-    ("switch_emergency_heat_allowed", "SwitchEmergencyHeatAllowed"),
     ("system_switch_position", "SystemSwitchPosition"),
-    ("deadband", "Deadband"),
     ("indoor_humidity", "IndoorHumidity"),
-    ("commercial", "Commercial"),
-    ("disp_temperature_available", "DispTemperatureAvailable"),
-    ("indoor_humidity_sensor_available", "IndoorHumiditySensorAvailable"),
-    ("indoor_humidity_sensor_not_fault", "IndoorHumiditySensorNotFault"),
-    ("vacation_hold_until_time", "VacationHoldUntilTime"),
-    ("temporary_hold_until_time", "TemporaryHoldUntilTime"),
-    ("is_in_vacation_hold_mode", "IsInVacationHoldMode"),
-    ("vacation_hold_cancelable", "VacationHoldCancelable"),
-    ("setpoint_change_allowed", "SetpointChangeAllowed"),
     ("outdoor_temperature", "OutdoorTemperature"),
-    ("outdoor_humidity", "OutdoorHumidity"),
-    ("outdoor_humidity_available", "OutdoorHumidityAvailable"),
-    ("outdoor_temperature_available", "OutdoorTemperatureAvailable"),
-    ("disp_temperature_status", "DispTemperatureStatus"),
-    ("indoor_humid_status", "IndoorHumidStatus"),
-    ("outdoor_temp_status", "OutdoorTempStatus"),
-    ("outdoor_humid_status", "OutdoorHumidStatus"),
-    ("outdoor_temperature_sensor_not_fault", "OutdoorTemperatureSensorNotFault"),
-    ("outdoor_humidity_sensor_not_fault", "OutdoorHumiditySensorNotFault"),
-    ("current_setpoint_status", "CurrentSetpointStatus"),
     ("equipment_output_status", "EquipmentOutputStatus"),
 )
 FAN_FIELD_MAP: tuple[tuple[str, str], ...] = (
     ("fan_mode", "fanMode"),
-    ("fan_mode_auto_allowed", "fanModeAutoAllowed"),
-    ("fan_mode_on_allowed", "fanModeOnAllowed"),
-    ("fan_mode_circulate_allowed", "fanModeCirculateAllowed"),
-    ("fan_mode_follow_schedule_allowed", "fanModeFollowScheduleAllowed"),
     ("fan_is_running", "fanIsRunning"),
 )
 

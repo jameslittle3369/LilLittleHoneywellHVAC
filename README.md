@@ -58,10 +58,12 @@ than every 15 minutes.
 ## What gets logged
 
 `--push-api` posts to `POST {API_BASE_URL}/hvac-zones/{device_id}/log`
-with every field from pyhtcc's raw `uiData` and `fanData` blocks (~53
-fields total) -- not a curated subset. The backend get-or-creates the
-zone and only inserts a new log row if at least one field changed since
-the last poll (dedup), so an idle thermostat doesn't spam the table.
+with the fields listed in `UI_FIELD_MAP`/`FAN_FIELD_MAP` in
+`honeywell_hvac.py` (15 fields, pruned from the original ~53 raw
+`uiData`/`fanData` fields once real logged data showed the rest never
+or rarely changed). The backend get-or-creates the zone and only
+inserts a new log row if at least one field changed since the last poll
+(dedup), so an idle thermostat doesn't spam the table.
 
 ## Scheduling
 

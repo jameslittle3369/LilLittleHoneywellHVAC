@@ -12,6 +12,7 @@ Configuration comes from a .env file (see .env.example).
 from __future__ import annotations
 
 import argparse
+import enum
 import json
 import os
 import smtplib
@@ -28,6 +29,33 @@ try:
     import requests
 except ImportError:  # pragma: no cover - dependency guard
     requests = None  # only required for --push-api
+
+
+# pyhtcc has no named enum for these three fields (SystemMode/FanMode
+# above are its own) -- these are reverse-engineered from `somecomfort`
+# (the older library Home Assistant's original Honeywell integration
+# used), cross-validated against pyhtcc's own control-write methods
+# (end_hold() sends 0, set_temp_*_setpoint() sends 1,
+# set_permanent_*_setpoint() sends 2).
+class HoldStatus(enum.IntEnum):
+    """Values for status_heat / status_cool (same enum, both fields)."""
+
+    Schedule = 0
+    Temporary = 1
+    Permanent = 2
+
+
+class EquipmentStatus(enum.IntEnum):
+    """Values for equipment_output_status.
+
+    0 genuinely means "not heating/cooling," not "the whole system is
+    off" -- fan_is_running (a separately logged field) is the companion
+    signal that distinguishes truly idle from fan-only.
+    """
+
+    OffOrFan = 0
+    Heat = 1
+    Cool = 2
 
 # Snake-cased field name -> raw Honeywell key, in the exact shape pyhtcc's
 # CheckDataSession call returns (latestData.uiData / latestData.fanData).
@@ -170,6 +198,11 @@ def collect(cfg: Config) -> list[Reading]:
                 SystemMode, metrics["system_switch_position"]
             )
             metrics["fan_mode"] = _enum_name(FanMode, metrics["fan_mode"])
+            metrics["status_heat"] = _enum_name(HoldStatus, metrics["status_heat"])
+            metrics["status_cool"] = _enum_name(HoldStatus, metrics["status_cool"])
+            metrics["equipment_output_status"] = _enum_name(
+                EquipmentStatus, metrics["equipment_output_status"]
+            )
             readings.append(Reading(device_id=device_id, name=zone.get_name(), metrics=metrics))
         except Exception as exc:  # noqa: BLE001 - one bad zone must not kill the run
             name = zone.zone_info.get("Name", device_id) if zone.zone_info else device_id
